@@ -13,7 +13,6 @@ using Microsoft.EntityFrameworkCore.Utilities;
 
 namespace Microsoft.EntityFrameworkCore.ChangeTracking
 {
-    // This is the app-developer facing public API to the change tracker
     /// <summary>
     ///     Provides access to change tracking information and operations for entity instances the context is tracking.
     ///     Instances of this class are typically obtained from <see cref="DbContext.ChangeTracker" /> and it is not designed
@@ -39,9 +38,8 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
             Check.NotNull(stateManager, nameof(stateManager));
             Check.NotNull(changeDetector, nameof(changeDetector));
 
-#pragma warning disable 612
             Context = context;
-#pragma warning restore 612
+
             _queryTrackingBehavior = context
                                          .GetService<IDbContextOptions>()
                                          .Extensions
@@ -49,6 +47,10 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
                                          .FirstOrDefault()
                                          ?.QueryTrackingBehavior
                                      ?? QueryTrackingBehavior.TrackAll;
+
+            stateManager.EntityStateChangingEventBridge = OnEnityStateChanging;
+            stateManager.EntityStateChangedEventBridge = OnEnityStateChanged;
+
             StateManager = stateManager;
             ChangeDetector = changeDetector;
             _model = model;
@@ -256,6 +258,32 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking
         private IChangeDetector ChangeDetector { get; }
 
         private IEntityEntryGraphIterator GraphIterator { get; }
+
+        /// <summary>
+        ///     An event fired when an entity that is tracked by the associated <see cref="DbContext" /> is about
+        ///     to move from one <see cref="EntityState" /> to another.
+        /// </summary>
+        public event Action<object, EntityStateEventArgs> EnityStateChanging;
+
+        private void OnEnityStateChanging(InternalEntityEntry internalEntityEntry, EntityState newState, bool fromQuery)
+        {
+            var @event = EnityStateChanging;
+
+            @event?.Invoke(this, new EntityStateEventArgs(internalEntityEntry, internalEntityEntry.EntityState, newState, fromQuery));
+        }
+
+        /// <summary>
+        ///     An event fired when an entity that is tracked by the associated <see cref="DbContext" /> has moved
+        ///     from one <see cref="EntityState" /> to another.
+        /// </summary>
+        public event Action<object, EntityStateEventArgs> EnityStateChanged;
+
+        private void OnEnityStateChanged(InternalEntityEntry internalEntityEntry, EntityState oldState, bool fromQuery)
+        {
+            var @event = EnityStateChanged;
+
+            @event?.Invoke(this, new EntityStateEventArgs(internalEntityEntry, oldState, internalEntityEntry.EntityState, fromQuery));
+        }
 
         #region Hidden System.Object members
 
