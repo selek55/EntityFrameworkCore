@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
+using System.Linq;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Internal;
 
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
@@ -148,5 +150,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         ///     Conventions to run when an annotation is changed on a property.
         /// </summary>
         public virtual IList<IPropertyAnnotationChangedConvention> PropertyAnnotationChangedConventions { get; } = new List<IPropertyAnnotationChangedConvention>();
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public static ConventionSet CreateConventionSet(DbContext context)
+            => new CompositeConventionSetBuilder(context.GetService<IEnumerable<IConventionSetBuilder>>().ToList())
+                .AddConventions(context.GetService<ICoreConventionSetBuilder>().CreateConventionSet());
     }
 }

@@ -1,12 +1,14 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Collections.Generic;
+using System.Linq;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.Converters;
-using Microsoft.EntityFrameworkCore.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Utilities;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 {
@@ -82,25 +84,18 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// </summary>
         public static ConventionSet Build()
         {
-            var coreTypeMapperDependencies = new CoreTypeMapperDependencies(
-                new ValueConverterSelector(
-                    new ValueConverterSelectorDependencies()));
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddDbContext<DbContext>(o => o.UseSqlServer("Server=."))
+                .BuildServiceProvider();
 
-            var sqlServerTypeMapper = new SqlServerTypeMapper(
-                new RelationalTypeMapperDependencies());
-
-            var convertingTypeMapper = new FallbackRelationalCoreTypeMapper(
-                coreTypeMapperDependencies,
-                new RelationalTypeMapperDependencies(), 
-                sqlServerTypeMapper);
-
-            return new SqlServerConventionSetBuilder(
-                new RelationalConventionSetBuilderDependencies(convertingTypeMapper, null, null, null),
-                new SqlServerSqlGenerationHelper(new RelationalSqlGenerationHelperDependencies()))
-                .AddConventions(
-                    new CoreConventionSetBuilder(
-                        new CoreConventionSetBuilderDependencies(convertingTypeMapper, null, null, null))
-                        .CreateConventionSet());
+            using (var serviceScope = serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope())
+            {
+                using (var context = serviceScope.ServiceProvider.GetService<DbContext>())
+                {
+                    return ConventionSet.CreateConventionSet(context);
+                }
+            }
         }
     }
 }
